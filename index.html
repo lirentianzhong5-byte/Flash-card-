@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#f5f7fb">
+<title>英単語フラッシュカード</title>
+<style>
+:root{--bg:#f4f6fa;--card:#fff;--ink:#1f2937;--muted:#6b7280;--line:#e5e7eb;--blue:#2563eb;--blue2:#dbeafe;--green:#15803d;--greenbg:#dcfce7;--red:#b91c1c;--redbg:#fee2e2}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+main{max-width:760px;margin:0 auto;padding:22px 16px 48px}
+h1{font-size:25px;margin:4px 0 6px}
+.sub{color:var(--muted);font-size:14px;margin:0 0 20px}
+.tabs{display:flex;gap:8px;margin:18px 0}
+.tab{border:1px solid var(--line);background:#fff;border-radius:999px;padding:10px 15px;font-weight:650;color:var(--muted)}
+.tab.active{background:var(--blue);border-color:var(--blue);color:#fff}
+.panel{display:none}.panel.active{display:block}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:9px;margin-bottom:15px}
+.stat{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px;text-align:center}
+.stat strong{display:block;font-size:23px}.stat span{font-size:12px;color:var(--muted)}
+.card{background:var(--card);border:1px solid var(--line);border-radius:20px;padding:26px 20px;box-shadow:0 6px 22px #1725540a;text-align:center;min-height:240px;display:flex;flex-direction:column;justify-content:center}
+.progress{height:7px;background:#e5e7eb;border-radius:99px;overflow:hidden;margin:0 0 16px}
+.progress>div{height:100%;width:0;background:var(--blue);transition:width .2s}
+.counter{font-size:13px;color:var(--muted);margin-bottom:15px}
+.word{font-size:clamp(30px,8vw,44px);font-weight:750;overflow-wrap:anywhere;cursor:pointer;user-select:none;-webkit-tap-highlight-color:transparent}.word:active{opacity:.65}
+.meaning{font-size:24px;font-weight:650;margin-top:20px;color:var(--blue);display:none}
+.meaning.show{display:block}
+.hint{font-size:13px;color:var(--muted);margin-top:14px}
+.actions{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px}
+button{font:inherit;cursor:pointer}
+.action{border:0;border-radius:13px;padding:15px 12px;font-weight:700;font-size:16px}
+.known{background:var(--greenbg);color:var(--green)}
+.unknown{background:var(--redbg);color:var(--red)}
+.secondary{background:#fff;border:1px solid var(--line);border-radius:11px;padding:11px 14px;color:var(--ink);font-weight:600}
+.primary{background:var(--blue);color:white;border:0;border-radius:11px;padding:12px 16px;font-weight:700}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.note{font-size:13px;color:var(--muted);line-height:1.6}
+.formbox,.listbox{background:#fff;border:1px solid var(--line);border-radius:16px;padding:17px;margin-bottom:14px}
+label{display:block;font-weight:650;font-size:14px;margin-bottom:6px}
+input{width:100%;padding:12px;border:1px solid #d1d5db;border-radius:10px;font-size:16px;margin-bottom:12px;background:#fff;color:var(--ink)}
+input:focus{outline:2px solid #93c5fd;border-color:var(--blue)}
+.listitem{display:flex;justify-content:space-between;gap:12px;padding:12px 0;border-bottom:1px solid var(--line);align-items:center}
+.listitem:last-child{border-bottom:0}
+.listitem strong{display:block}.listitem small{color:var(--muted)}
+.delete{border:1px solid var(--line);background:#fff;border-radius:9px;padding:7px 10px;color:var(--red)}
+.empty{color:var(--muted);text-align:center;padding:22px 8px}
+#toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:#111827;color:white;padding:10px 16px;border-radius:99px;font-size:13px;opacity:0;pointer-events:none;transition:opacity .2s}
+#toast.show{opacity:1}
+@media(max-width:420px){main{padding:17px 12px 36px}.card{padding:23px 14px}.tab{padding:9px 12px;font-size:14px}}
+</style>
+</head>
+<body>
+<main>
+  <h1>英単語フラッシュカード</h1>
+  <p class="sub">英語を見て、日本語訳を思い出そう。毎日100単語が目安！</p>
+
+  <div class="stats">
+    <div class="stat"><strong id="totalCount">0</strong><span>登録単語</span></div>
+    <div class="stat"><strong id="unknownCount">0</strong><span>覚えていない</span></div>
+    <div class="stat"><strong id="todayCount">0/100</strong><span>今日のチェック</span></div>
+  </div>
+
+  <nav class="tabs">
+    <button class="tab active" data-tab="study">学習する</button>
+    <button class="tab" data-tab="add">単語を追加</button>
+    <button class="tab" data-tab="review">覚えていないリスト</button>
+  </nav>
+
+  <section class="panel active" id="study">
+    <div class="progress"><div id="progressBar"></div></div>
+    <div class="card">
+      <div class="counter" id="counter">学習を始めましょう</div>
+      <div class="word" id="word" role="button" tabindex="0" aria-label="タップして日本語訳を表示">単語を登録してください</div>
+      <div class="meaning" id="meaning"></div>
+      <div class="hint" id="hint">表示されている英単語をタップすると日本語訳が表示されます</div>
+    </div>
+    <div class="row" style="justify-content:center;margin-top:13px">
+      <button class="secondary" id="skipBtn">この単語をスキップ</button>
+    </div>
+    <div class="actions">
+      <button class="action known" id="knownBtn">✓ 覚えた</button>
+      <button class="action unknown" id="unknownBtn">× まだ覚えていない</button>
+    </div>
+    <p class="note">※「まだ覚えていない」にした単語は、覚えていないリストに自動で追加されます。次回以降も復習できます。</p>
+  </section>
+
+  <section class="panel" id="add">
+    <div class="formbox">
+      <h2 style="font-size:19px;margin:0 0 14px">単語を追加する</h2>
+      <form id="addForm">
+        <label for="english">英単語・英語表現</label>
+        <input id="english" autocomplete="off" placeholder="例：maintain" required>
+        <label for="japanese">日本語訳</label>
+        <input id="japanese" autocomplete="off" placeholder="例：維持する、保守する" required>
+        <button class="primary" type="submit">＋ 単語を登録</button>
+      </form>
+      <p class="note">登録した単語は保存され、学習カードにランダムで登場します。同じ英単語は重複登録できません。</p>
+    </div>
+    <div class="listbox">
+      <div class="row" style="justify-content:space-between">
+        <strong>登録済み単語</strong><span class="note" id="registeredLabel">0語</span>
+      </div>
+      <div id="registeredList"></div>
+    </div>
+    <div class="listbox">
+      <strong>データのバックアップ</strong>
+      <p class="note">機種変更やブラウザ変更に備えて、単語データをJSONファイルで保存・読み込みできます。</p>
+      <div class="row">
+        <button class="secondary" id="exportBtn">JSONを書き出す</button>
+        <button class="secondary" id="importBtn">JSONを読み込む</button>
+        <input type="file" id="importFile" accept=".json,application/json" hidden>
+      </div>
+    </div>
+  </section>
+
+  <section class="panel" id="review">
+    <div class="listbox">
+      <div class="row" style="justify-content:space-between">
+        <strong>覚えていない単語</strong>
+        <span class="note" id="reviewLabel">0語</span>
+      </div>
+      <p class="note">学習画面で「× まだ覚えていない」を選んだ単語がここに集まります。</p>
+      <div id="reviewList"></div>
+      <button class="primary" id="reviewStudyBtn" style="margin-top:12px">このリストから復習する</button>
+    </div>
+  </section>
+</main>
+<div id="toast"></div>
+<script>
+(() => {
+  const STORAGE_KEY = "englishFlashcards_v1";
+  const TODAY_KEY = "englishFlashcards_daily_v1";
+  let words = [];
+  let session = [];
+  let index = 0;
+  let todayDone = 0;
+  let reviewMode = false;
+  let revealed = false;
+
+  const $ = id => document.getElementById(id);
+  const today = () => new Date().toLocaleDateString("sv-SE");
+  function load() {
+    try { words = JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]"); } catch { words = []; }
+    try {
+      const daily = JSON.parse(localStorage.getItem(TODAY_KEY) || "{}");
+      todayDone = daily.date === today() ? (daily.count || 0) : 0;
+    } catch { todayDone = 0; }
+    if (!Array.isArray(words)) words = [];
+  }
+  function save() {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(words));
+    localStorage.setItem(TODAY_KEY, JSON.stringify({date:today(),count:todayDone}));
+    renderStats();
+  }
+  function toast(message) {
+    const el = $("toast"); el.textContent = message; el.classList.add("show");
+    setTimeout(() => el.classList.remove("show"), 1900);
+  }
+  function shuffle(array) {
+    const a = [...array];
+    for (let i=a.length-1;i>0;i--) { const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; }
+    return a;
+  }
+  function renderStats() {
+    $("totalCount").textContent = words.length;
+    $("unknownCount").textContent = words.filter(w=>w.unknown).length;
+    $("todayCount").textContent = `${todayDone}/100`;
+    $("registeredLabel").textContent = `${words.length}語`;
+    $("reviewLabel").textContent = `${words.filter(w=>w.unknown).length}語`;
+  }
+  function startSession(onlyUnknown=false) {
+    reviewMode = onlyUnknown;
+    const pool = onlyUnknown ? words.filter(w=>w.unknown) : words;
+    session = shuffle(pool).slice(0, Math.min(100, pool.length));
+    index = 0;
+    showCard();
+    if (!session.length) {
+      $("word").textContent = onlyUnknown ? "覚えていない単語はありません！" : "単語を登録してください";
+      $("counter").textContent = "学習カードなし";
+      $("meaning").classList.remove("show");
+      $("meaning").textContent = "";
+      $("hint").textContent = onlyUnknown ? "すべての単語を覚えています。すばらしい！" : "「単語を追加」から英単語を登録できます";
+    }
+  }
+  function showCard() {
+    revealed = false;
+    $("meaning").classList.remove("show");
+    $("meaning").textContent = "";
+    if (index >= session.length) {
+      $("word").textContent = "今日のカード終了！";
+      $("counter").textContent = `${session.length}語チェックしました`;
+      $("hint").textContent = "お疲れさまでした。覚えていないリストも確認してみましょう。";
+      $("progressBar").style.width = "100%";
+      return;
+    }
+    const item = session[index];
+    $("word").textContent = item.en;
+    $("counter").textContent = `${index+1} / ${session.length}語${reviewMode ? "（復習）" : ""}`;
+    $("hint").textContent = "日本語訳を思い出してから、英単語をタップしよう";
+    $("progressBar").style.width = `${(index/session.length)*100}%`;
+  }
+  function reveal() {
+    if (index >= session.length) return;
+    $("meaning").textContent = session[index].ja;
+    $("meaning").classList.add("show");
+    $("hint").textContent = "意味を確認して、覚えたかどうかを選ぼう";
+    revealed = true;
+  }
+  function mark(known) {
+    if (index >= session.length) return;
+    const item = session[index];
+    const original = words.find(w=>w.id===item.id);
+    if (original) original.unknown = !known;
+    todayDone++;
+    save();
+    index++;
+    if (todayDone === 100) toast("今日の100単語チェック達成！");
+    showCard();
+  }
+  function renderLists() {
+    const reg = $("registeredList");
+    reg.innerHTML = "";
+    if (!words.length) reg.innerHTML = '<div class="empty">まだ単語が登録されていません</div>';
+    words.forEach(w=>{
+      const div=document.createElement("div"); div.className="listitem";
+      const info=document.createElement("div");
+      const strong=document.createElement("strong"); strong.textContent=w.en;
+      const small=document.createElement("small"); small.textContent=w.ja;
+      info.append(strong,small);
+      const del=document.createElement("button"); del.className="delete"; del.textContent="削除";
+      del.addEventListener("click",()=>{ if(confirm(`「${w.en}」を削除しますか？`)){words=words.filter(x=>x.id!==w.id);save();renderLists();startSession();} });
+      div.append(info,del); reg.append(div);
+    });
+    const rev=$("reviewList"); rev.innerHTML="";
+    const missed=words.filter(w=>w.unknown);
+    if (!missed.length) rev.innerHTML='<div class="empty">覚えていない単語はまだありません</div>';
+    missed.forEach(w=>{
+      const div=document.createElement("div"); div.className="listitem";
+      const info=document.createElement("div");
+      const strong=document.createElement("strong"); strong.textContent=w.en;
+      const small=document.createElement("small"); small.textContent=w.ja;
+      info.append(strong,small);
+      const done=document.createElement("button"); done.className="secondary"; done.textContent="覚えた";
+      done.addEventListener("click",()=>{w.unknown=false;save();renderLists();});
+      div.append(info,done); rev.append(div);
+    });
+  }
+  document.querySelectorAll(".tab").forEach(btn=>btn.addEventListener("click",()=>{
+    document.querySelectorAll(".tab").forEach(b=>b.classList.toggle("active",b===btn));
+    document.querySelectorAll(".panel").forEach(p=>p.classList.toggle("active",p.id===btn.dataset.tab));
+    if(btn.dataset.tab!=="study"){renderLists();}
+  }));
+  $("addForm").addEventListener("submit",e=>{
+    e.preventDefault();
+    const en=$("english").value.trim(), ja=$("japanese").value.trim();
+    if(!en||!ja)return;
+    if(words.some(w=>w.en.toLowerCase()===en.toLowerCase())){toast("その英単語は登録済みです");return;}
+    words.push({id:Date.now().toString(36)+Math.random().toString(36).slice(2,7),en,ja,unknown:false});
+    save(); renderLists(); $("addForm").reset(); toast("単語を登録しました！");
+    if(session.length===0 || index>=session.length) startSession();
+  });
+  $("word").addEventListener("click",reveal);
+  $("word").addEventListener("keydown",e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();reveal();}});
+  $("knownBtn").addEventListener("click",()=>mark(true));
+  $("unknownBtn").addEventListener("click",()=>mark(false));
+  $("skipBtn").addEventListener("click",()=>{if(index<session.length){index++;showCard();}});
+  $("reviewStudyBtn").addEventListener("click",()=>{
+    document.querySelector('[data-tab="study"]').click(); startSession(true);
+  });
+  $("exportBtn").addEventListener("click",()=>{
+    const data={version:1,words};
+    const blob=new Blob([JSON.stringify(data,null,2)],{type:"application/json"});
+    const url=URL.createObjectURL(blob), a=document.createElement("a");
+    a.href=url;a.download="english-words-backup.json";a.click();URL.revokeObjectURL(url);
+    toast("JSONを書き出しました");
+  });
+  $("importBtn").addEventListener("click",()=>$("importFile").click());
+  $("importFile").addEventListener("change",async e=>{
+    const file=e.target.files[0]; if(!file)return;
+    try{
+      const parsed=JSON.parse(await file.text());
+      const incoming=Array.isArray(parsed)?parsed:parsed.words;
+      if(!Array.isArray(incoming))throw new Error();
+      const normalized=incoming.filter(w=>w&&typeof w.en==="string"&&typeof w.ja==="string")
+        .map(w=>({id:w.id||Date.now().toString(36)+Math.random().toString(36).slice(2),en:w.en,ja:w.ja,unknown:!!w.unknown}));
+      const merged=[...words];
+      normalized.forEach(w=>{const exists=merged.find(x=>x.en.toLowerCase()===w.en.toLowerCase());if(!exists)merged.push(w);});
+      words=merged;save();renderLists();startSession();toast(`${normalized.length}語のデータを読み込みました（重複は除外）`);
+    }catch{alert("JSONファイルを読み込めませんでした。正しいバックアップファイルを選んでください。");}
+    e.target.value="";
+  });
+  load(); renderStats(); renderLists(); startSession();
+})();
+</script>
+</body>
+</html>
